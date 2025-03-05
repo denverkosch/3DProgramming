@@ -7,15 +7,15 @@ from game_logic import GameLogic
 from player_view import PlayerView
 
 controls = {
-    "w": 'forwaard',
+    "w": 'forward',
     "a": 'left',
     "s": 'backward',
     "d": 'right',
-    "r": 'reset'
-    # "w-up": 'stopForward',
-    # "a-up": 'stopLeft',
-    # "s-up": 'stopBackward',
-    # "d-up": 'stopRight',
+    "r": 'reset',
+    "w-up": 'stopForward',
+    "a-up": 'stopLeft',
+    "s-up": 'stopBackward',
+    "d-up": 'stopRight',
 }
 
 class Main(ShowBase):
@@ -25,8 +25,6 @@ class Main(ShowBase):
         #load the world
         self.game_logic.load_world()
 
-        self.camera.set_pos(0,-20,0)
-        self.camera.look_at(0,0,0)
         self.taskMgr.add(self.tick)
 
         self.input_events = {}
@@ -39,11 +37,9 @@ class Main(ShowBase):
         self.input_events[event] = True
 
     def tick(self, task):
-
         if self.input_events:
             pub.sendMessage('input', events=self.input_events)
         
-        #give model and view chance to do something
         self.game_logic.tick()
         self.player_view.tick()
 
@@ -58,6 +54,13 @@ class Main(ShowBase):
         if game_object.kind != 'player':
             return
         self.player = game_object
+
+        # Attach camera to the center node so it moves/rotates with it
+        
+        self.camera.reparentTo(self.player.cube.find('**/ship'))  
+        self.camera.setPos(0, -60, 35)  # Keep desired offset
+        self.camera.lookAt(self.player.cube.find('**/ship'))
+
 
     def __init__(self):
         ShowBase.__init__(self)

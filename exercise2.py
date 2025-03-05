@@ -19,7 +19,6 @@ class Exercise2(ShowBase):
         self.globe = self.loader.loadModel("Models/sphere")
         globeTexture = self.loader.loadTexture("Models/earthTex.jpg")
         self.globe.setTexture(globeTexture, 1)
-        # self.globe.setColor(0, 0, 1, 0.5)
         self.globe.reparentTo(self.render)
         self.globe.setPos(0, 0, 0)
         self.globe.setScale(7, 7, 7)

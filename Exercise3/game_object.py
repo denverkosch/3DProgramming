@@ -1,12 +1,10 @@
 
 class GameObject:
-    def __init__(self, position, kind, id):
+    def __init__(self, position, kind, id, hpr=(0,0,0)):
         self.position = position
         self.kind = kind
         self.id = id
-        self.x_rotation = 0
-        self.y_rotation = 0
-        self.z_rotation = 0
+        self.hpr = hpr
 
     def tick(self):
         pass
