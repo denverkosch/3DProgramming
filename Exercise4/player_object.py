@@ -3,14 +3,12 @@ from pubsub import pub
 from game_object import GameObject
 
 class PlayerObject(GameObject):
-    def __init__(self, position, kind, id):
-        super().__init__(position, kind, id)
+    def __init__(self, position, kind, id, size):
+        super().__init__(position, kind, id, size)
         pub.subscribe(self.input_event, 'input')
 
         self.speed = 0.1
         self.originalPosition = position
-
-        self.node_path = NodePath("player")
 
     def input_event(self, events=None):
         if events:
@@ -24,6 +22,8 @@ class PlayerObject(GameObject):
                 self.position[1] -= self.speed
             if 'reset' in events:
                 self.position = self.originalPosition
+            if "fire" in events:
+                print("")
 
         self.node_path.setHpr(self.node_path, *self.position)
 

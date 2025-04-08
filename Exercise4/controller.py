@@ -5,9 +5,11 @@ from pubsub import pub
 from direct.showbase.InputStateGlobal import inputState
 from game_logic import GameLogic
 from player_view import PlayerView
+from panda3d.core import LineSegs
 
 controls = {
     "r": 'reset',
+    "space": "fire"
 }
 
 held_keys = {
@@ -21,6 +23,7 @@ class Main(ShowBase):
     def go(self):
         pub.subscribe(self.new_player_object, 'create')
         self.player = None
+        self.flag = None
         #load the world
         self.game_logic.load_world()
 
@@ -42,7 +45,7 @@ class Main(ShowBase):
         if self.input_events:
             pub.sendMessage('input', events=self.input_events)
         
-        self.move_player(self.input_events)
+        self.move_player()
 
         self.game_logic.tick()
         self.player_view.tick()
@@ -52,14 +55,18 @@ class Main(ShowBase):
             sys.exit()
 
         self.input_events.clear()
-        return Task.cont
+        return task.cont
     
     def new_player_object(self, game_object):
+        if game_object.kind == "flag":
+            self.flag = game_object
+
+            return
         if game_object.kind != 'player':
             return
         self.player = game_object
 
-        self.taskMgr.doMethodLater(0.1, self.setCameraBehindPlayer, 'set_camera_task')
+        self.taskMgr.add(self.setCameraBehindPlayer, 'set_camera_task')
 
     # Delay and set the camera behind the player once the view object has been created
     def setCameraBehindPlayer(self, task):
@@ -75,18 +82,17 @@ class Main(ShowBase):
 
         return task.done
 
-
-    def move_player(self, events=None):
+    def move_player(self):
         speed = [0, 0, 0]
         delta = 1.0
 
-        if inputState.isSet('forward'):
+        if inputState.isSet('forward') and not inputState.isSet('backward'):
             speed[2] = -delta
-        if inputState.isSet('backward'):
-            speed[2] = delta
-        if inputState.isSet('left'):
+        if inputState.isSet('backward') and not inputState.isSet('forward'):
+            speed[2] = delta*0.5
+        if inputState.isSet('left') and not inputState.isSet('right'):
             speed[1] = delta
-        if inputState.isSet('right'):
+        if inputState.isSet('right') and not inputState.isSet('left'):
             speed[1] = -delta
 
         self.player.move(speed)
@@ -105,7 +111,30 @@ class Main(ShowBase):
         self.game_logic = GameLogic()
         self.player_view = PlayerView(self.game_logic)
 
+        self.create_world_axes()  # Create world axes for reference
 
+
+    def create_world_axes(self):
+        axis = LineSegs()
+        axis.setThickness(2.0)
+
+        # Z-axis (Red)
+        axis.setColor(1, 0, 0, 1)
+        axis.moveTo(0, 0, -100)
+        axis.drawTo(0, 0, 100)
+
+        # X-axis (Green)
+        axis.setColor(0, 1, 0, 1)
+        axis.moveTo(-100, 0, 0)
+        axis.drawTo(100, 0, 0)
+
+        # Y-axis (Blue)
+        axis.setColor(0, 0, 1, 1)
+        axis.moveTo(0, -100, 0)
+        axis.drawTo(0, 100, 0)
+
+        axis_node = axis.create()
+        self.render.attachNewNode(axis_node)
 
 if __name__ == '__main__':
     app = Main()
@@ -114,6 +143,7 @@ if __name__ == '__main__':
 
 '''
     Notes to self:
-    Need to fix the sun to start rotating around the world
-    Need to add a skybox to the world object to make it look like the player is on a planet and not just floating in space (Not neccesary at the moment)
+
+    -   Need to add a skybox to the world object to make it look like the player is 
+        on a planet and not just floating in space (Not neccesary at the moment)
 '''

@@ -13,4 +13,4 @@ class PlayerView:
             self.view_objects[key].tick()
 
     def new_game_object(self, game_object):
-        self.view_objects[game_object.id] = ViewObject(game_object) if game_object.kind != 'world' else ViewObject(game_object, scale=(7,7,7))
+        self.view_objects[game_object.id] = ViewObject(game_object)
