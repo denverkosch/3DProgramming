@@ -1,5 +1,5 @@
 from colors import brown, white, red, dimWhite, gold
-from panda3d.core import DirectionalLight, AmbientLight, CollisionNode, CollisionBox, BitMask32, CollisionSphere, NodePath
+from panda3d.core import DirectionalLight, AmbientLight, CollisionNode, CollisionBox, BitMask32, CollisionSphere
 from pubsub import pub
 
 
@@ -21,12 +21,12 @@ class ViewObject:
             bounds = corners[1] - corners[0]
             print("Bounds of the model:", bounds)
 
-                # --- Normalization Trick ---
+
             avg_bound = (bounds.x + bounds.y + bounds.z) / 3
-            if avg_bound < 0.1:  # If model is super tiny (less than 0.1 units avg)
+            if avg_bound < 0.1:
                 print("Model bounds very small, applying auto normalization...")
-                self.cube.setScale(10)  # Scale it up ×10 to make it reasonable
-                bounds *= 10  # Update bounds accordingly
+                self.cube.setScale(10) 
+                bounds *= 10
 
             print(f"Size of the model ({game_object.kind}): {size}")
             x_scale = size[0] / bounds.x
@@ -43,7 +43,6 @@ class ViewObject:
             center = (corners[0] + corners[1]) * 0.5
 
             if self.game_object.can_collide:
-                # Match model EXACTLY — including tiny Y
                 if self.game_object.kind == 'basic':
                     solid = CollisionSphere(center, bounds.x/2)
                 else:
@@ -54,12 +53,8 @@ class ViewObject:
                 collider_node.setFromCollideMask(BitMask32.bit(1))
                 collider_node.setIntoCollideMask(BitMask32.bit(1))
 
-                # self.collider = NodePath(collider_node)
-                # self.collider.reparentTo(self.game_object.node_path)
-
                 self.collider = self.game_object.node_path.attachNewNode(collider_node)
-                self.collider.setPos(0, 0, 0)
-                self.collider.setHpr(0, 0, 0)
+                self.collider.setPosHpr(0, 0, 0, 0, 0, 0)
                 print(f"Model position, hpr, scale: {self.cube.getPos()}, {self.cube.getHpr()}, {self.cube.getScale()}")
                 print(f"Collider position, hpr, scale: {self.collider.getPos()}, {self.collider.getHpr()}, {self.collider.getScale()}")
                 self.collider.set_python_tag("game_object", self.game_object)
