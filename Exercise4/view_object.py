@@ -1,5 +1,6 @@
 from colors import brown, white, red, dimWhite, gold
 from panda3d.core import DirectionalLight, AmbientLight, CollisionNode, CollisionBox, BitMask32, CollisionSphere, NodePath
+from pubsub import pub
 
 
 class ViewObject:
@@ -9,9 +10,9 @@ class ViewObject:
 
         self.cube = self.getModel(kind=self.game_object.kind) # type: ignore
         if not self.cube.isAncestorOf(game_object.node_path):
-            self.cube.getParent().reparentTo(game_object.node_path)
+            self.cube.reparentTo(game_object.node_path)
         else:
-            self.cube.getParent().reparentTo(base.render)  # type: ignore
+            self.cube.reparentTo(base.render)  # type: ignore
 
         corners = self.cube.getTightBounds()
         size = self.game_object.size
@@ -53,23 +54,27 @@ class ViewObject:
                 collider_node.setFromCollideMask(BitMask32.bit(1))
                 collider_node.setIntoCollideMask(BitMask32.bit(1))
 
-                self.collider = NodePath(collider_node)
-                self.collider.reparentTo(self.game_object.node_path)
+                # self.collider = NodePath(collider_node)
+                # self.collider.reparentTo(self.game_object.node_path)
+
+                self.collider = self.game_object.node_path.attachNewNode(collider_node)
                 self.collider.setPos(0, 0, 0)
                 self.collider.setHpr(0, 0, 0)
-                self.collider.show()
+                print(f"Model position, hpr, scale: {self.cube.getPos()}, {self.cube.getHpr()}, {self.cube.getScale()}")
+                print(f"Collider position, hpr, scale: {self.collider.getPos()}, {self.collider.getHpr()}, {self.collider.getScale()}")
                 self.collider.set_python_tag("game_object", self.game_object)
+
+                pub.sendMessage("collider", collider=self.collider)
 
             print("\n--------------------------\n")
 
-        self.cube.setHpr(self.cube, *game_object.position)
+        self.game_object.node_path.setHpr(self.game_object.node_path, *game_object.position)
 
     def tick(self):
         if self.game_object.kind != 'player':
             self.cube.setHpr(*self.game_object.position)
 
     def getModel(self, kind):
-        holder = NodePath(f"{kind}_holder")
         obj = None
         if kind == 'world': 
             obj = base.loader.loadModel("../Models/sphere") # type: ignore
@@ -116,7 +121,5 @@ class ViewObject:
             obj.setPosHpr(0, 0, 18.3, 0, 0, 0)
             obj.setName("model")
             obj.setColor(gold)
-
-        obj.reparentTo(holder)
 
         return obj

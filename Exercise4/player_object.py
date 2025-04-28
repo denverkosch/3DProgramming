@@ -3,8 +3,8 @@ from pubsub import pub
 from game_object import GameObject
 
 class PlayerObject(GameObject):
-    def __init__(self, position, kind, id, size):
-        super().__init__(position, kind, id, size)
+    def __init__(self, position, kind, id, size, can_collide=True):
+        super().__init__(position, kind, id, size, can_collide=can_collide)
         pub.subscribe(self.input_event, 'input')
 
         self.speed = 0.1
@@ -32,3 +32,9 @@ class PlayerObject(GameObject):
         self.position[1] += speed[1]
         self.position[2] += speed[2]
         self.node_path.setHpr(self.node_path, *speed)
+
+    def collision(self, other):
+        if other.kind == "basic":
+            pub.sendMessage("found_gold")
+        elif other.kind == "flag":
+            pub.sendMessage("new_basic")

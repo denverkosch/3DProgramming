@@ -1,10 +1,22 @@
+
 class GameObject:
-    def __init__(self, position, kind, id, size, node_path=None):
+    def __init__(self, position, kind, id, size, node_path=None, can_collide=True):
         self.position = position
         self.kind = kind
         self.id = id
         self.size = size
         self.node_path = base.render.attachNewNode( f"{kind}" ) if node_path is None else node_path # type: ignore
+        self.can_collide = can_collide
+        
+    
+
+    @property
+    def can_collide(self):
+        return self._can_collide
+    
+    @can_collide.setter
+    def can_collide(self, value):
+        self._can_collide = value
 
     @property
     def position(self):
@@ -21,7 +33,6 @@ class GameObject:
     @kind.setter
     def kind(self, value):
         self._kind = value
-
 
     @property
     def id(self):
@@ -48,4 +59,7 @@ class GameObject:
         self._node_path = value
 
     def tick(self):
+        pass
+
+    def collision(self, other):
         pass
