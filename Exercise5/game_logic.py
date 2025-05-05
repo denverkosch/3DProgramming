@@ -2,6 +2,8 @@ from pubsub import pub
 from game_object import GameObject
 from player_object import PlayerObject
 from sun import Sun
+from enemy_ship import EnemyShip
+from cannonball import Cannonball
 from random import randint
 
 class GameLogic:
@@ -9,16 +11,23 @@ class GameLogic:
         self.properties = {}
         self.game_objects = {}
 
+        self.objMap = {
+            "player": PlayerObject,
+            "sun": Sun,
+            "ship": EnemyShip,
+            "cannonball": Cannonball,
+            "world": GameObject,
+            "ambient": GameObject
+        }
+
         self.next_id = 0 # Next available ID for a game object when it is created
 
     def create_object(self, position, kind, size, can_collide=True):
         obj = None
-        if kind == "player":
-            obj = PlayerObject(position=position, kind=kind, id=self.next_id, size=size, can_collide=can_collide)
-        elif kind == "sun":
-            obj = Sun(position=position, kind=kind, id=self.next_id, size=size, can_collide=can_collide)
+        if kind in self.objMap:
+            obj = self.objMap[kind](position, kind, self.next_id, size, can_collide=can_collide)
         else:
-            obj = GameObject(position=position, kind=kind, id=self.next_id, size=size, can_collide=can_collide)
+            raise ValueError(f"Unknown object type: {kind}")
         self.next_id += 1
         self.game_objects[obj.id] = obj
 
@@ -26,29 +35,22 @@ class GameLogic:
         return obj
 
     def tick(self):
-        for id in self.game_objects:
-            self.game_objects[id].tick()
+        for obj in list(self.game_objects.values()):
+            obj.tick()
     
     def load_world(self):
-        self.create_object(position=[0, 0, 0], kind="player", size=[1, .35, 1])
-        self.create_object(position=[0, 0, 0], kind="world", size=[250 ,250 ,250], can_collide=False)
-        self.create_object(position=[67, 0, 0], kind="sun", size=[1, 1, 1], can_collide=False)
-        self.create_object(position=[0, 0, 0], kind='ambient', size=[1, 1, 1], can_collide=False)
-        self.create_object(position=[0, 0, 0], kind="flag", size=[15, 1, 1])
+        self.create_object([0, 0, 0], "player", [.35, 1, 1])
+        self.create_object([0, 0, 0], "world", [250 ,250 ,250], can_collide=False)
+        self.create_object([67, 0, 0], "sun", [1, 1, 1], can_collide=False)
+        self.create_object([0, 0, 0], 'ambient', [1, 1, 1], can_collide=False)
 
-    # making basic, easy functions for making new objects
-    def new_basic(self, size=[1, 1, 1]):
-        if not self.check_basic():
-            x = randint(-75, 75)
-            y = randint(-75, 75)
-            self.create_object(position=[x, y, 0], kind="basic", size=size)
+    def fire_cannonball(self, position, size=[1, 1, 1]):
+        self.create_object(position, "cannonball", size)
 
-    # Check if a basic object is in the game
-    def check_basic(self):
-        for id in self.game_objects:
-            if self.game_objects[id].kind == "basic":
-                return True
-        return False
+    def spawn_enemy(self, size=[.35, 1, 1]):
+            x = randint(0, 360)
+            y = randint(0, 360)
+            self.create_object([x, y, 0], "ship", [.35, 1, 1])
 
 
     def get_property(self, key):

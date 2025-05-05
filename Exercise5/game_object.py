@@ -7,8 +7,7 @@ class GameObject:
         self.size = size
         self.node_path = base.render.attachNewNode( f"{kind}" ) if node_path is None else node_path # type: ignore
         self.can_collide = can_collide
-        
-    
+
 
     @property
     def can_collide(self):
@@ -24,7 +23,12 @@ class GameObject:
     
     @position.setter
     def position(self, value):
-        self._position = value
+        if not hasattr(self, '_position') or self._position is None:
+            self._position = [v for v in value]
+        else:
+            self._position[0] = value[0]
+            self._position[1] = value[1]
+            self._position[2] = value[2]
 
     @property
     def kind(self):

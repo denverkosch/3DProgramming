@@ -5,4 +5,4 @@ class Sun(GameObject):
         super().__init__(position, kind, id, size, can_collide=can_collide)
 
     def tick(self):
-        self.position = (self.position[0], (self.position[1] + 1) % 360, self.position[2])
+        self.position = (self.position[0], (self.position[1] + 1), self.position[2])

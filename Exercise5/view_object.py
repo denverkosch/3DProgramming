@@ -5,35 +5,42 @@ from pubsub import pub
 
 class ViewObject:
     def __init__(self, game_object):
+        
         self.game_object = game_object
 
+        self.cube = self.getModel(self.game_object.kind) # type: ignore
 
-        self.cube = self.getModel(kind=self.game_object.kind) # type: ignore
         if not self.cube.isAncestorOf(game_object.node_path):
             self.cube.reparentTo(game_object.node_path)
         else:
             self.cube.reparentTo(base.render)  # type: ignore
 
+
+        if self.game_object.kind in ['ship', 'player']:
+            self.cube.setPos(self.game_object.node_path, 0, 0, 18)
+        elif self.game_object.kind == 'cannonball':
+            self.cube.setPos(self.game_object.node_path, 0, 0, 18.25)
+            
+
         corners = self.cube.getTightBounds()
         size = self.game_object.size
         if corners:
-            print(game_object.kind, game_object.position)
+            # print(game_object.kind, game_object.position)
             bounds = corners[1] - corners[0]
-            print("Bounds of the model:", bounds)
+            # print("Bounds of the model:", bounds)
 
 
             avg_bound = (bounds.x + bounds.y + bounds.z) / 3
             if avg_bound < 0.1:
-                print("Model bounds very small, applying auto normalization...")
                 self.cube.setScale(10) 
                 bounds *= 10
 
-            print(f"Size of the model ({game_object.kind}): {size}")
+            # print(f"Size of the model ({game_object.kind}): {size}")
             x_scale = size[0] / bounds.x
             y_scale = size[1] / bounds.y
             z_scale = size[2] / bounds.z
 
-            print(f"Scale factors: {x_scale}, {y_scale}, {z_scale}")
+            # print(f"Scale factors: {x_scale}, {y_scale}, {z_scale}")
 
             self.cube.setScale(x_scale, y_scale, z_scale)
 
@@ -55,19 +62,15 @@ class ViewObject:
 
                 self.collider = self.game_object.node_path.attachNewNode(collider_node)
                 self.collider.setPosHpr(0, 0, 0, 0, 0, 0)
-                print(f"Model position, hpr, scale: {self.cube.getPos()}, {self.cube.getHpr()}, {self.cube.getScale()}")
-                print(f"Collider position, hpr, scale: {self.collider.getPos()}, {self.collider.getHpr()}, {self.collider.getScale()}")
                 self.collider.set_python_tag("game_object", self.game_object)
+
+                self.collider.show()
 
                 pub.sendMessage("collider", collider=self.collider)
 
-            print("\n--------------------------\n")
-
-        self.game_object.node_path.setHpr(self.game_object.node_path, *game_object.position)
-
     def tick(self):
         if self.game_object.kind != 'player':
-            self.cube.setHpr(*self.game_object.position)
+            self.game_object.node_path.setHpr(*self.game_object.position)
 
     def getModel(self, kind):
         obj = None
@@ -79,7 +82,7 @@ class ViewObject:
             obj = base.loader.loadModel("../Models/ship") # type: ignore
             obj.reparentTo(self.game_object.node_path)
             obj.setName("model")
-            obj.setPosHprScale(18, 0, 0, 90, 90, 0, 0.25, 0.25, 0.25)
+            obj.setScale(0.25, 0.25, 0.25)
 
             captain = base.loader.loadModel("../Models/sonic/sonic") # type: ignore
             captain.reparentTo(obj)
@@ -103,17 +106,9 @@ class ViewObject:
             obj = base.render.attachNewNode(AmbientLight("Ambient")) # type: ignore
             obj.node().setColor(dimWhite)
             base.render.setLight(obj) # type: ignore
-        elif kind == 'flag':
-            obj = base.loader.loadModel("../Models/Toothpick_flag") # type: ignore
-            obj.setTexture(base.loader.loadTexture('../Models/usaFlagTex.png')) # type: ignore
-            # obj.setColor(1, 0, 1, 1)  # Magenta color for the flag
-            obj.reparentTo(self.game_object.node_path)
-            obj.setPosHpr(0, 17.8, 0, 90, 90, 90)
-            
-            obj.setName("model")
-        elif kind == 'basic':
+        elif kind == 'cannonball':
             obj = base.loader.loadModel("../Models/sphere") # type: ignore
-            obj.setPosHpr(0, 0, 18.3, 0, 0, 0)
+            obj.reparentTo(self.game_object.node_path)
             obj.setName("model")
             obj.setColor(gold)
 

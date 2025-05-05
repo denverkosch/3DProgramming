@@ -1,4 +1,3 @@
-import random
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
 import sys
@@ -6,11 +5,11 @@ from pubsub import pub
 from direct.showbase.InputStateGlobal import inputState
 from game_logic import GameLogic
 from player_view import PlayerView
-from panda3d.core import LineSegs, CollisionTraverser, CollisionHandlerQueue
+from panda3d.core import CollisionTraverser, CollisionHandlerQueue
 from direct.gui.OnscreenText import OnscreenText
 
+
 controls = {
-    "r": 'reset',
     "space": "fire"
 }
 
@@ -29,11 +28,14 @@ class Main(ShowBase):
 
         pub.subscribe(self.new_collider, 'collider')
         pub.subscribe(self.new_object, 'create')
-        pub.subscribe(self.hitFlag, "new_basic")
-        pub.subscribe(self.endGame, "found_gold")
+        pub.subscribe(self.game_logic.fire_cannonball, 'shoot')
+        pub.subscribe(self.enemy_destroyed, 'enemy_destroyed')
+
         self.player = None
-        self.flag = None
-        #load the world
+        self.enemies_spawned = 0
+        self.enemies_destroyed = 0
+        
+        
         self.game_logic.load_world()
 
 
@@ -47,6 +49,7 @@ class Main(ShowBase):
             inputState.watchWithModifiers(held_keys[key], key)
 
         self.taskMgr.add(self.traverse_task, "traverse")
+        self.taskMgr.add(self.spawn_enemy_loop, "spawn_enemy_task")
 
         self.run()
 
@@ -59,57 +62,38 @@ class Main(ShowBase):
     def traverse_task(self, task):
         self.cTrav.traverse(self.render)
         return task.cont
-
-    def hitFlag(self):
-        self.game_logic.new_basic()
-        text = OnscreenText(
-            text="You have reached the flag! The gold appears...",
-            pos=(0, 0.8),
-            scale=0.07,
-            fg=(1, 1, 0, 1)
-        )
-
-        def remove_text(task):
-            text.destroy()
-            return Task.done
-        
-        self.taskMgr.doMethodLater(5, remove_text, "removeGoldText")
-
                                
     def tick(self, task):
-        for entry in self.collision_queue.entries:
-            into_go = entry.into_node.get_python_tag('game_object')
-            from_go = entry.from_node.get_python_tag('game_object')
-            into_go.collision(from_go)
-            from_go.collision(into_go)
-
-
-        if self.input_events:
-            pub.sendMessage('input', events=self.input_events)
-        
-        self.move_player()
-
-        self.game_logic.tick()
-        self.player_view.tick()
-
-
         if self.game_logic.get_property("exit"):
-            text = OnscreenText(
-                text="You have found the gold! The game is over...",
+            OnscreenText(
+                text="There are too many enemies! The game is over...",
                 pos=(0, 0.8),
                 scale=0.07,
                 fg=(1, 1, 0, 1)
             )
-            
             self.taskMgr.doMethodLater(5, sys.exit, "terminate")
+
+        self.cTrav.traverse(self.render)
+        for entry in self.collision_queue.entries:
+            into_go = entry.into_node.get_python_tag('game_object')
+            from_go = entry.from_node.get_python_tag('game_object')
+            into_go.collision(from_go)
+
+        if not self.game_logic.get_property("exit"):
+            if self.input_events:
+                pub.sendMessage('input', events=self.input_events)
+            
+            self.move_player()
+
+        self.game_logic.tick()
+        self.player_view.tick()
 
         self.input_events.clear()
         return task.cont
 
-
     def new_object(self, game_object):
         self.new_player_object(game_object)
-        self.new_flag_object(game_object)
+        self.new_cannonball_object(game_object)
 
     def new_player_object(self, game_object):
         if game_object.kind != 'player':
@@ -118,11 +102,35 @@ class Main(ShowBase):
 
         self.taskMgr.add(self.setCameraBehindPlayer, 'set_camera_task')
 
-    def new_flag_object(self, game_object):
-        if game_object.kind != 'basic':
+    def new_cannonball_object(self, game_object):
+        if game_object.kind != 'cannonball':
             return
-        self.flag = game_object
 
+        def remove_cannonball(cannonball):
+            pub.sendMessage("remove", id=cannonball.id)
+
+        # Set the cannonball to be removed after 1 second
+        self.taskMgr.doMethodLater(1, remove_cannonball, "remove_cannonball", extraArgs=[game_object])
+
+    def enemy_destroyed(self, enemy, cannonball):
+        pub.sendMessage("remove", id=cannonball.id)
+        pub.sendMessage("remove", id=enemy.id)
+        self.enemies_destroyed += 1
+        self.enemies_spawned -= 1
+        self.hud_text.text = f"Enemies destroyed: {self.enemies_destroyed} / {self.enemies_destroyed + self.enemies_spawned}"
+
+    def spawn_enemy_loop(self, task):
+        if self.player is None:
+            return task.again
+        if self.enemies_spawned >= 20:
+            self.game_logic.set_property("exit", True)
+            return task.done
+        # Spawn an enemy ship every 2 seconds
+        self.game_logic.spawn_enemy()
+        self.enemies_spawned += 1
+        self.hud_text.text = f"Enemies destroyed: {self.enemies_destroyed} / {self.enemies_spawned}"
+        self.taskMgr.doMethodLater(2, self.spawn_enemy_loop, "spawn_enemy_task")
+        return task.done
 
     # Delay and set the camera behind the player once the view object has been created
     def setCameraBehindPlayer(self, task):
@@ -133,8 +141,7 @@ class Main(ShowBase):
             print("Error: Ship node not found!")
             return task.again
         self.camera.reparentTo(ship_node)
-        self.camera.setPos(0, -60, 45)
-        # self.camera.setPos(0, -60, 0)
+        self.camera.setPos(0, -70, 45) 
         self.camera.lookAt(ship_node)
 
         return task.done
@@ -144,24 +151,32 @@ class Main(ShowBase):
         delta = 1.0
 
         if inputState.isSet('forward') and not inputState.isSet('backward'):
-            speed[2] = -delta
-        if inputState.isSet('backward') and not inputState.isSet('forward'):
-            speed[2] = delta*0.5
-        if inputState.isSet('left') and not inputState.isSet('right'):
-            speed[1] = delta
-        if inputState.isSet('right') and not inputState.isSet('left'):
             speed[1] = -delta
+        if inputState.isSet('backward') and not inputState.isSet('forward'):
+            speed[1] = delta*0.5
+        if inputState.isSet('left') and not inputState.isSet('right'):
+            speed[0] = delta
+        if inputState.isSet('right') and not inputState.isSet('left'):
+            speed[0] = -delta
 
         self.player.move(speed)
-
-    def endGame(self):
-        self.game_logic.set_property("exit", True)
 
 
     def __init__(self):
         ShowBase.__init__(self)
         self.disableMouse()
         self.render.setShaderAuto()
+        from panda3d.core import TextNode
+        from direct.gui.OnscreenText import OnscreenText
+
+        self.hud_text = OnscreenText(
+            text="Enemies destroyed: 0 / 0",
+            pos=(-1.3, 0.9),
+            scale=0.07,
+            fg=(1, 1, 1, 1),
+            align=TextNode.ALeft,
+            mayChange=True
+        )
 
         self.instances = []
         self.player = None
@@ -171,44 +186,10 @@ class Main(ShowBase):
         self.game_logic = GameLogic()
         self.player_view = PlayerView(self.game_logic)
 
-        self.create_world_axes()  # Create world axes for reference
-
         self.camera.reparentTo(self.render)
         self.camera.setPos(0, 0, -75)
         self.camera.lookAt(0, 0, 0)
 
-
-
-    def create_world_axes(self):
-        axis = LineSegs()
-        axis.setThickness(2.0)
-
-        # Z-axis (Red)
-        axis.setColor(1, 0, 0, 1)
-        axis.moveTo(0, 0, -100)
-        axis.drawTo(0, 0, 100)
-
-        # X-axis (Green)
-        axis.setColor(0, 1, 0, 1)
-        axis.moveTo(-100, 0, 0)
-        axis.drawTo(100, 0, 0)
-
-        # Y-axis (Blue)
-        axis.setColor(0, 0, 1, 1)
-        axis.moveTo(0, -100, 0)
-        axis.drawTo(0, 100, 0)
-
-        axis_node = axis.create()
-        self.render.attachNewNode(axis_node)
-
 if __name__ == '__main__':
     app = Main()
     app.go()
-
-
-'''
-    Notes to self:
-
-    -   Need to add a skybox to the world object to make it look like the player is 
-        on a planet and not just floating in space (Not neccesary at the moment)
-'''
